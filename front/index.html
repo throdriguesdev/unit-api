@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Gerenciamento de Ativos de TI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 p-8">
+  <div class="container mx-auto max-w-4xl bg-white p-6 rounded-lg shadow-md">
+    <h1 class="text-2xl font-bold mb-6 text-center">Gerenciamento de Ativos de TI</h1>
+
+    <!-- Formulário de Cadastro/Edição -->
+    <form id="assetForm" class="mb-6 bg-gray-50 p-4 rounded-md">
+      <input type="hidden" id="assetId">
+
+      <div class="mb-4">
+        <label class="block mb-2">Nome do Ativo</label>
+        <input type="text" id="name" required class="w-full p-2 border rounded" placeholder="Digite o nome do ativo">
+      </div>
+
+      <div class="mb-4">
+        <label class="block mb-2">Descrição</label>
+        <textarea id="description" required class="w-full p-2 border rounded"
+          placeholder="Digite a descrição do ativo"></textarea>
+      </div>
+
+      <div class="flex mb-4 gap-4">
+        <div class="w-1/2">
+          <label class="block mb-2">Categoria</label>
+          <select id="category" class="w-full p-2 border rounded">
+            <option value="hardware">Hardware</option>
+            <option value="software">Software</option>
+            <option value="network">Rede</option>
+            <option value="other">Outro</option>
+          </select>
+        </div>
+
+        <div class="w-1/2">
+          <label class="block mb-2">Status</label>
+          <select id="status" class="w-full p-2 border rounded">
+            <option value="in_use">Em Uso</option>
+            <option value="inactive">Inativo</option>
+            <option value="maintenance">Manutenção</option>
+            <option value="retired">Aposentado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex space-x-4">
+        <button type="submit" id="submitButton" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+          Cadastrar Ativo
+        </button>
+        <button type="button" id="cancelEditButton"
+          class="hidden bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+          Cancelar Edição
+        </button>
+      </div>
+    </form>
+
+    <!-- Tabela de Ativos -->
+    <div>
+      <h2 class="text-xl font-semibold mb-4">Ativos Cadastrados</h2>
+      <table id="assetsTable" class="w-full border-collapse">
+        <thead>
+          <tr class="bg-gray-200">
+            <th class="p-2 border">Nome</th>
+            <th class="p-2 border">Descrição</th>
+            <th class="p-2 border">Categoria</th>
+            <th class="p-2 border">Status</th>
+            <th class="p-2 border">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="assetsTableBody">
+          <!-- Ativos serão inseridos aqui dinamicamente -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:8000';
+    const form = document.getElementById('assetForm');
+    const tableBody = document.getElementById('assetsTableBody');
+    const submitButton = document.getElementById('submitButton');
+    const cancelEditButton = document.getElementById('cancelEditButton');
+
+    // Elementos do formulário
+    const idInput = document.getElementById('assetId');
+    const nameInput = document.getElementById('name');
+    const descriptionInput = document.getElementById('description');
+    const categoryInput = document.getElementById('category');
+    const statusInput = document.getElementById('status');
+
+    // Buscar ativos
+    async function fetchAssets() {
+      try {
+        const response = await fetch(`${API_URL}/assets/`);
+        const assets = await response.json();
+        renderAssets(assets);
+      } catch (error) {
+        console.error('Erro ao buscar ativos:', error);
+      }
+    }
+
+    // Renderizar ativos na tabela
+    function renderAssets(assets) {
+      tableBody.innerHTML = '';
+      assets.forEach(asset => {
+        const row = `
+                    <tr>
+                        <td class="p-2 border">${asset.name}</td>
+                        <td class="p-2 border">${asset.description}</td>
+                        <td class="p-2 border">${asset.category}</td>
+                        <td class="p-2 border">${asset.status}</td>
+                        <td class="p-2 border">
+                            <button onclick="editAsset(${asset.id})" class="mr-2 bg-yellow-500 text-white p-1 rounded hover:bg-yellow-600">Editar</button>
+                            <button onclick="deleteAsset(${asset.id})" class="bg-red-500 text-white p-1 rounded hover:bg-red-600">Deletar</button>
+                        </td>
+                    </tr>
+                `;
+        tableBody.insertAdjacentHTML('beforeend', row);
+      });
+    }
+
+    // Criar novo ativo
+    async function createAsset(asset) {
+      try {
+        const response = await fetch(`${API_URL}/assets/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(asset)
+        });
+
+        if (response.ok) {
+          fetchAssets();
+          form.reset();
+        }
+      } catch (error) {
+        console.error('Erro ao criar ativo:', error);
+      }
+    }
+
+    // Editar ativo
+    async function updateAsset(id, asset) {
+      try {
+        const response = await fetch(`${API_URL}/assets/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(asset)
+        });
+
+        if (response.ok) {
+          fetchAssets();
+          cancelEdit();
+        }
+      } catch (error) {
+        console.error('Erro ao atualizar ativo:', error);
+      }
+    }
+
+    // Deletar ativo
+    async function deleteAsset(id) {
+      try {
+        const response = await fetch(`${API_URL}/assets/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          fetchAssets();
+        }
+      } catch (error) {
+        console.error('Erro ao deletar ativo:', error);
+      }
+    }
+
+    // Preparar formulário para edição
+    async function editAsset(id) {
+      try {
+        const response = await fetch(`${API_URL}/assets/`);
+        const assets = await response.json();
+        const asset = assets.find(a => a.id === id);
+
+        if (asset) {
+          idInput.value = asset.id;
+          nameInput.value = asset.name;
+          descriptionInput.value = asset.description;
+          categoryInput.value = asset.category;
+          statusInput.value = asset.status;
+
+          submitButton.textContent = 'Atualizar Ativo';
+          cancelEditButton.classList.remove('hidden');
+        }
+      } catch (error) {
+        console.error('Erro ao buscar ativo para edição:', error);
+      }
+    }
+
+    // Cancelar edição
+    function cancelEdit() {
+      form.reset();
+      idInput.value = '';
+      submitButton.textContent = 'Cadastrar Ativo';
+      cancelEditButton.classList.add('hidden');
+    }
+
+    // Submissão do formulário
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const asset = {
+        name: nameInput.value,
+        description: descriptionInput.value,
+        category: categoryInput.value,
+        status: statusInput.value
+      };
+
+      if (idInput.value) {
+        // Modo de edição
+        await updateAsset(parseInt(idInput.value), asset);
+      } else {
+        // Modo de criação
+        await createAsset(asset);
+      }
+    });
+
+    // Botão de cancelar edição
+    cancelEditButton.addEventListener('click', cancelEdit);
+
+    // Inicializar página
+    fetchAssets();
+  </script>
+</body>
+
+</html>

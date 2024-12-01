@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Gerenciamento de Ativos de TI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+
+    .container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    table,
+    th,
+    td {
+      border: 1px solid #ddd;
+    }
+
+    th,
+    td {
+      padding: 10px;
+      text-align: left;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      margin: 10px 0;
+      cursor: pointer;
+    }
+
+    .error {
+      color: red;
+      margin-top: 10px;
+    }
+
+    .success {
+      color: green;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Gerenciamento de Ativos de TI</h1>
+
+    <form id="assetForm">
+      <input type="hidden" id="assetId">
+      <input type="text" id="name" placeholder="Nome do Ativo" required>
+      <input type="text" id="description" placeholder="Descrição">
+      <select id="category" required>
+        <option value="">Selecione a Categoria</option>
+        <option value="hardware">Hardware</option>
+        <option value="software">Software</option>
+        <option value="network">Rede</option>
+        <option value="other">Outros</option>
+      </select>
+      <select id="status" required>
+        <option value="">Selecione o Status</option>
+        <option value="in_use">Em Uso</option>
+        <option value="inactive">Inativo</option>
+        <option value="maintenance">Manutenção</option>
+        <option value="retired">Aposentado</option>
+      </select>
+      <button type="submit" id="submitBtn">Adicionar Ativo</button>
+    </form>
+
+    <div id="errorMessage" class="error"></div>
+    <div id="successMessage" class="success"></div>
+
+    <table id="assetsTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>Descrição</th>
+          <th>Categoria</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="assetsTableBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    // Configuração da API
+    const API_URL = 'http://127.0.0.1:8000';
+
+    // Elementos do DOM
+    const form = document.getElementById('assetForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const errorMessage = document.getElementById('errorMessage');
+    const successMessage = document.getElementById('successMessage');
+    const assetsTableBody = document.getElementById('assetsTableBody');
+
+    // Limpar mensagens
+    function clearMessages() {
+      errorMessage.textContent = '';
+      successMessage.textContent = '';
+    }
+
+    // Mostrar mensagem de erro
+    function showError(message) {
+      clearMessages();
+      errorMessage.textContent = message;
+      setTimeout(clearMessages, 5000);
+    }
+
+    // Mostrar mensagem de sucesso
+    function showSuccess(message) {
+      clearMessages();
+      successMessage.textContent = message;
+      setTimeout(clearMessages, 5000);
+    }
+
+    // Carregar ativos
+    async function loadAssets() {
+      try {
+        clearMessages();
+
+        const response = await fetch(`${API_URL}/assets/`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        console.log('Resposta completa:', response);
+        console.log('Status da resposta:', response.status);
+        console.log('Headers da resposta:', Object.fromEntries(response.headers.entries()));
+
+        if (!response.ok) {
+          throw new Error(`Erro HTTP: ${response.status}`);
+        }
+
+        const assets = await response.json();
+
+        console.log('Ativos recebidos:', assets);
+        console.log('Número de ativos:', assets.length);
+
+        renderAssets(assets);
+      } catch (error) {
+        console.error('Erro ao carregar ativos:', error);
+        showError(`Não foi possível carregar os ativos: ${error.message}`);
+        assetsTableBody.innerHTML = '<tr><td colspan="6">Erro ao carregar ativos</td></tr>';
+      }
+    }
+
+    // Renderizar ativos na tabela
+    function renderAssets(assets) {
+      assetsTableBody.innerHTML = '';
+
+      if (assets.length === 0) {
+        assetsTableBody.innerHTML = '<tr><td colspan="6">Nenhum ativo encontrado</td></tr>';
+        return;
+      }
+
+      assets.forEach(asset => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+                    <td>${asset.id}</td>
+                    <td>${asset.name}</td>
+                    <td>${asset.description}</td>
+                    <td>${asset.category}</td>
+                    <td>${asset.status}</td>
+                    <td>
+                        <button onclick="editAsset(${asset.id}, '${asset.name}', '${asset.description}', '${asset.category}', '${asset.status}')">Editar</button>
+                        <button onclick="deleteAsset(${asset.id})">Excluir</button>
+                    </td>
+                `;
+        assetsTableBody.appendChild(row);
+      });
+    }
+
+    // Submeter ativo (adicionar/atualizar)
+    async function submitAsset(event) {
+      event.preventDefault();
+      clearMessages();
+
+      const id = document.getElementById('assetId').value;
+      const name = document.getElementById('name').value;
+      const description = document.getElementById('description').value;
+      const category = document.getElementById('category').value;
+      const status = document.getElementById('status').value;
+
+      const assetData = { name, description, category, status };
+
+      try {
+        let response;
+        if (id) {
+          // Atualizar ativo existente
+          response = await fetch(`${API_URL}/assets/${id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(assetData)
+          });
+        } else {
+          // Criar novo ativo
+          response = await fetch(`${API_URL}/assets/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(assetData)
+          });
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Erro ao salvar ativo');
+        }
+
+        const savedAsset = await response.json();
+        showSuccess(id ? 'Ativo atualizado com sucesso!' : 'Ativo adicionado com sucesso!');
+
+        // Limpar formulário
+        form.reset();
+        document.getElementById('assetId').value = '';
+        submitBtn.textContent = 'Adicionar Ativo';
+
+        // Recarregar lista de ativos
+        loadAssets();
+      } catch (error) {
+        console.error('Erro ao salvar ativo:', error);
+        showError(`Erro ao salvar ativo: ${error.message}`);
+      }
+    }
+
+    // Editar ativo
+    function editAsset(id, name, description, category, status) {
+      document.getElementById('assetId').value = id;
+      document.getElementById('name').value = name;
+      document.getElementById('description').value = description;
+      document.getElementById('category').value = category;
+      document.getElementById('status').value = status;
+      submitBtn.textContent = 'Atualizar Ativo';
+    }
+
+    // Excluir ativo
+    async function deleteAsset(id) {
+      if (!confirm('Tem certeza que deseja excluir este ativo?')) return;
+
+      try {
+        const response = await fetch(`${API_URL}/assets/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Erro ao excluir ativo');
+        }
+
+        showSuccess('Ativo excluído com sucesso!');
+        loadAssets();
+      } catch (error) {
+        console.error('Erro ao excluir ativo:', error);
+        showError(`Erro ao excluir ativo: ${error.message}`);
+      }
+    }
+
+    // Eventos
+    form.addEventListener('submit', submitAsset);
+
+    // Carregar ativos ao iniciar
+    document.addEventListener('DOMContentLoaded', loadAssets);
+  </script>
+</body>
+
+</html>
